@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEXORA</title>
+<style>
+:root{color-scheme:dark;--bg:#080d19;--panel:#111b2e;--line:#263653;--text:#edf4ff;--muted:#9aabc5;--accent:#6d8cff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#17284b,var(--bg) 45%);color:var(--text);font:16px system-ui,sans-serif}
+main{max-width:900px;margin:auto;padding:24px}.brand{font-size:30px;font-weight:800;letter-spacing:2px;color:#a9bbff}
+.card{background:#111b2eeF;border:1px solid var(--line);border-radius:18px;padding:20px;margin:16px 0}
+input,textarea,button{font:inherit;border-radius:10px;padding:12px;border:1px solid var(--line);background:#0b1425;color:var(--text);width:100%;margin:6px 0}
+button{background:var(--accent);border:0;font-weight:700;cursor:pointer}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.small{color:var(--muted);font-size:13px}.hidden{display:none}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.tile{padding:16px;border:1px solid var(--line);border-radius:12px;background:#0c1628}
+#status{white-space:pre-wrap;color:#c6d5f5}
+</style>
+</head>
+<body><main>
+<div class="brand">NEXORA</div><p class="small">One World. One Platform. Endless Possibilities.</p>
+<section class="card" id="setup">
+<h2>ربط المنصة</h2><p class="small">دخل إعدادات مشروع Supabase ديالك. ما تدخل حتى كلمة سر شخصية هنا.</p>
+<input id="url" placeholder="Supabase Project URL">
+<input id="key" placeholder="Supabase anon/public key">
+<button id="connect">ربط Supabase</button>
+<p class="small">المفتاح العام anon فقط مسموح فالواجهة. ممنوع تحط service_role أو API key ديال مزود الذكاء الاصطناعي هنا.</p>
+</section>
+<section class="card hidden" id="auth">
+<h2>الحساب</h2><input id="email" type="email" placeholder="البريد الإلكتروني">
+<input id="password" type="password" placeholder="كلمة المرور">
+<div class="row"><button id="signup">إنشاء حساب</button><button id="login">تسجيل الدخول</button></div>
+<button id="logout">تسجيل الخروج</button><p class="small" id="status"></p>
+</section>
+<section class="card hidden" id="app">
+<h2>لوحة NEXORA</h2><div class="tiles">
+<div class="tile">🤖 مركز الذكاء الاصطناعي</div><div class="tile">📚 الأكاديمية</div><div class="tile">🌐 المعرفة</div><div class="tile">🧰 أدوات الحياة</div><div class="tile">👥 المجتمع</div><div class="tile">⚙️ الإعدادات</div>
+</div>
+<h3>مساعد NEXORA</h3><textarea id="prompt" rows="3" placeholder="كتب سؤالك هنا..."></textarea><button id="ask">إرسال للمساعد</button><p id="answer"></p>
+<p class="small">مركز الذكاء لن يعمل حتى تنشر Edge Function وتضبط مفتاح مزود AI في أسرار الخادم.</p>
+</section>
+</main>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+let supabase;
+const $=id=>document.getElementById(id);
+function say(t){$('status').textContent=t}
+$('connect').onclick=()=>{
+ const u=$('url').value.trim(), k=$('key').value.trim();
+ if(!u.startsWith('https://')||!k){say('تأكد من Project URL و anon key.');return}
+ supabase=createClient(u,k);$('auth').classList.remove('hidden');say('تم إعداد الاتصال. دابا سجل أو أنشئ حساب.');
+};
+$('signup').onclick=async()=>{if(!supabase)return;const {error}=await supabase.auth.signUp({email:$('email').value,password:$('password').value});say(error?error.message:'تم إرسال طلب التسجيل. راجع بريدك إذا كان تأكيد البريد مفعّلاً.')};
+$('login').onclick=async()=>{if(!supabase)return;const {data,error}=await supabase.auth.signInWithPassword({email:$('email').value,password:$('password').value});say(error?error.message:'تم تسجيل الدخول بنجاح.');if(data.session)$('app').classList.remove('hidden')};
+$('logout').onclick=async()=>{if(supabase)await supabase.auth.signOut();$('app').classList.add('hidden');say('تم تسجيل الخروج.')};
+$('ask').onclick=async()=>{
+ if(!supabase){$('answer').textContent='ربط Supabase أولاً.';return}
+ $('answer').textContent='كنرسل...';
+ const {data:{session}}=await supabase.auth.getSession();
+ const {data,error}=await supabase.functions.invoke('ai-chat',{body:{message:$('prompt').value},headers:{Authorization:`Bearer ${session?.access_token||''}`}});
+ $('answer').textContent=error?('تعذر الاتصال: '+error.message):(data?.reply||'ما وصل حتى جواب.');
+};
+</script></body></html>
